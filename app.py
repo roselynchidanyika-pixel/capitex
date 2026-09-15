@@ -1,7 +1,30 @@
 """Capital Projects Finance AI Agent - Streamlit Web Application (Zimbabwe)."""
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Make local packages importable regardless of where the app is launched from
+# (works both locally and on Streamlit Cloud / Docker).
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, APP_DIR)
+_SUB_DIR = os.path.join(APP_DIR, "capital_projects_agent")
+if os.path.isdir(os.path.join(_SUB_DIR, "utils")):
+    sys.path.insert(0, _SUB_DIR)
+
+# Fail fast with a clear, actionable message if the project folders are missing
+# (the usual cause is a partial push to GitHub where utils/ and models/ were
+#  not committed).
+_MISSING = []
+for _pkg in ("utils", "models"):
+    if not os.path.isdir(os.path.join(APP_DIR, _pkg)):
+        _MISSING.append(os.path.join(APP_DIR, _pkg))
+if _MISSING:
+    raise ImportError(
+        "Missing project folders: " + ", ".join(_MISSING) + ".\n"
+        "Make sure the 'utils/' and 'models/' folders are committed and pushed "
+        "to your GitHub repository so they sit next to app.py. If app.py is the "
+        "deployed entrypoint, the repo root must contain app.py, utils/, models/, "
+        "requirements.txt and README.md."
+    )
 
 import streamlit as st
 import pandas as pd
