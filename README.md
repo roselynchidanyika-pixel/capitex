@@ -16,6 +16,7 @@ in **live macroeconomic data** (World Bank, FRED, Open Exchange Rates).
 | Feature | Description |
 |---|---|
 | **Overrun Risk Prediction** | ML model (Gradient Boosting / XGBoost) predicts P(cost overrun ≥ 20%). Returns risk category (LOW / MEDIUM / HIGH) and top 5 risk drivers per project. |
+| **Model Diagnostics (Explainable AI)** | Opens the "black box" with plain-English model explanations, ROC curve, confusion matrix, calibration and residual plots, feature-importance rankings, four standard statistical tests, a fair algorithm comparison, and Zimbabwean trend analysis (by era, sector, size, and risk label). |
 | **AI-Enhanced Capital Budgeting** | Zimbabwe-adjusted NPV, IRR, MIRR, payback, discounted payback, Profitability Index (PI), and DSCR — with inflation cost escalation, currency-depreciation-adjusted discount rates, and overrun-adjusted capex. |
 | **Monte Carlo Simulation** | 10,000+ simulations produce NPV distributions, P(NPV>0), Value-at-Risk (95%), CVaR, percentiles, and tornado sensitivity charts. |
 | **Portfolio Optimization** | Mixed-Integer Linear Programming (PuLP + CBC) selects the optimal project portfolio under budget, risk-exposure, sector-quota, and strategic-priority constraints. Includes budget sensitivity and efficient frontier. |
@@ -49,12 +50,15 @@ Your browser will open at `http://localhost:8501`.
    policy rate, gold, reserves) and exchange-rate scenario forecasts.
 2. **Overrun Risk** — upload your projects CSV (see template below), load sample
    projects, or enter a project manually; run the prediction to get risk scores.
-3. **Capital Budgeting** — select a project, tune assumptions (debt ratio,
+3. **Model Diagnostics** — press "Run Full Model Diagnostics" once to see honest
+   model-performance metrics, statistical checks, factor importance, and trend
+   analysis explained in plain English.
+4. **Capital Budgeting** — select a project, tune assumptions (debt ratio,
    tenor, revenue), and compute the full risk-adjusted valuation.
-4. **Monte Carlo** — quantify NPV uncertainty and identify key drivers.
-5. **Portfolio Optimization** — build a portfolio from the predictions and solve
+5. **Monte Carlo** — quantify NPV uncertainty and identify key drivers.
+6. **Portfolio Optimization** — build a portfolio from the predictions and solve
    the MILP to see what to fund, defer, or reject.
-6. **Reports** — export project briefs, credit memos, and portfolio dashboards.
+7. **Reports** — export project briefs, credit memos, and portfolio dashboards.
 
 ---
 
@@ -138,12 +142,13 @@ decisions are auditable, not a black box.
 
 ```
 capital_projects_agent/
-├── app.py                     # Streamlit web application (7 pages)
+├── app.py                     # Streamlit web application (8 pages)
 ├── requirements.txt
 ├── data/
 │   └── sample_projects_template.csv   # Upload template / sample dataset
 ├── models/
 │   ├── capital_budgeting.py   # NPV, IRR, MIRR, DSCR, scenarios
+│   ├── diagnostics.py         # Model diagnostics & plain-English explainability
 │   ├── monte_carlo.py         # Monte Carlo + tornado sensitivity
 │   ├── overrun_model.py       # ML overrun prediction
 │   └── portfolio_optimizer.py # MILP portfolio selection + sensitivity

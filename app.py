@@ -47,6 +47,7 @@ def _import_modules():
         from models.portfolio_optimizer import (
             optimize_portfolio, sensitivity_budget, efficient_frontier,
         )
+        from models.diagnostics import run_diagnostics
     else:
         utils_dir = _find_dir_with(["macro_data.py", "reporting.py"])
         models_dir = _find_dir_with(["overrun_model.py", "capital_budgeting.py"])
@@ -81,6 +82,7 @@ def _import_modules():
         from portfolio_optimizer import (
             optimize_portfolio, sensitivity_budget, efficient_frontier,
         )
+        from diagnostics import run_diagnostics
 
     return {
         "fetch_all_macro": fetch_all_macro,
@@ -102,6 +104,7 @@ def _import_modules():
         "optimize_portfolio": optimize_portfolio,
         "sensitivity_budget": sensitivity_budget,
         "efficient_frontier": efficient_frontier,
+        "run_diagnostics": run_diagnostics,
     }
 
 
@@ -195,8 +198,8 @@ st.sidebar.caption("AI Decision Support for Zimbabwe")
 
 nav = st.sidebar.radio(
     "Navigation",
-    ["Dashboard", "Overrun Risk", "Capital Budgeting", "Monte Carlo",
-     "Portfolio Optimization", "Macroeconomic Data", "Reports"],
+    ["Dashboard", "Overrun Risk", "Model Diagnostics", "Capital Budgeting",
+     "Monte Carlo", "Portfolio Optimization", "Macroeconomic Data", "Reports"],
 )
 
 # ---------------------------------------------------------------------------
@@ -393,6 +396,218 @@ elif nav == "Overrun Risk":
         else:
             st.warning("Model is not yet trained. Run a prediction in the other tab; "
                        "it will auto-train on synthetic historical data on first run.")
+
+# ---------------------------------------------------------------------------
+# MODEL DIAGNOSTICS (Explainable AI)
+# ---------------------------------------------------------------------------
+elif nav == "Model Diagnostics":
+    st.title("Model Diagnostics & Explainable AI")
+    st.caption("Plain-English transparency: how the model thinks, how accurate it "
+               "really is, what drives its decisions, and the checks behind it")
+
+    st.markdown(
+        "This page opens the 'black box'. It shows you **what** the AI model "
+        "considers when scoring a project, **how reliable** those scores are "
+        "(measured honestly on projects it has never seen), **which warning "
+        "signs matter most**, and how the model compares with alternative "
+        "algorithms - all in plain English."
+    )
+
+    if st.session_state.get("diagnostics") is None:
+        if st.button("Run Full Model Diagnostics (one-off, ~30-60s)", type="primary"):
+            with st.spinner("Training and evaluating models on held-out data..."):
+                st.session_state.diagnostics = run_diagnostics()
+            st.success("Diagnostics complete. Scroll through the verified sections below.")
+
+    res = st.session_state.get("diagnostics")
+
+    if res is not None:
+        st.caption(f"Generated {res['generated_at']} | Validation set: "
+                   f"{res['n_test']} projects held out from {res['n_samples']} "
+                   f"historical projects | Estimator: {res['gold_model']}")
+
+        # 1. What the model does
+        st.markdown("---")
+        st.subheader("1. What the Model Does")
+        st.markdown(res["narratives"]["what_model_does"])
+
+        # 2. Accuracy + ROC + confusion
+        st.markdown("---")
+        st.subheader("2. How Accurate Is the Model?")
+        m = res["metrics"]
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Overall Accuracy", f"{m['accuracy'] * 100:.1f}%")
+        c2.metric("ROC-AUC", f"{m['auc']:.3f}")
+        c3.metric("Precision", f"{m['precision'] * 100:.1f}%")
+        c4.metric("Recall (caught risky)", f"{m['recall'] * 100:.1f}%")
+        c5.metric("F1 Score", f"{m['f1']:.2f}")
+        st.markdown(res["narratives"]["how_accurate"])
+
+        col_roc, col_cm = st.columns(2)
+        with col_roc:
+            st.markdown("**ROC curve** - how well the model separates risky from "
+                        "safe projects. The closer the blue line is to the "
+                        "top-left corner, the better.")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=res["roc"]["fpr"], y=res["roc"]["tpr"], mode="lines",
+                name=f"Model (AUC {res['roc']['auc']:.3f})",
+                line=dict(color="royalblue", width=3)))
+            fig.add_trace(go.Scatter(
+                x=[0, 1], y=[0, 1], mode="lines", name="Random guess",
+                line=dict(dash="dash", color="gray")))
+            fig.update_layout(height=380, xaxis_title="False alarm rate",
+                              yaxis_title="Catch rate",
+                              xaxis=dict(range=[0, 1]), yaxis=dict(range=[0, 1]))
+            st.plotly_chart(fig, use_container_width=True)
+        with col_cm:
+            st.markdown("**Confusion matrix** - where the model is right and "
+                        "wrong on the held-out projects.")
+            cm = [[m["tp"], m["fn"]], [m["fp"], m["tn"]]]
+            fig_cm = go.Figure(data=go.Heatmap(
+                z=cm, x=["Predicted risky", "Predicted safe"],
+                y=["Actually risky", "Actually safe"], colorscale="Blues",
+                showscale=False, text=[["TP", "FN"], ["FP", "TN"]],
+                texttemplate="%{text}<br>%{z}", textfont=dict(size=14)))
+            fig_cm.update_layout(height=380, xaxis_side="top")
+            st.plotly_chart(fig_cm, use_container_width=True)
+        st.markdown(res["narratives"]["confusion"])
+
+        # 3. Feature importance
+        st.markdown("---")
+        st.subheader("3. What Drives the Predictions? (Top Warning Signs)")
+        st.markdown(res["narratives"]["feature_importance"])
+        imp = res["feature_importance"].head(10).copy()
+        fig_i = px.bar(imp, x="importance_pct", y="label", orientation="h",
+                       title="Factor importance (% of the model's decisions)",
+                       labels={"importance_pct": "% weight", "label": ""},
+                       color="importance_pct", color_continuous_scale="Blues")
+        fig_i.update_layout(height=420, yaxis=dict(autorange="reversed"))
+        st.plotly_chart(fig_i, use_container_width=True)
+
+        # 4. Calibration
+        st.markdown("---")
+        st.subheader("4. Do the Percentages Mean What They Say? (Calibration)")
+        st.markdown(res["narratives"]["calibration"])
+        cal = pd.DataFrame({
+            "predicted": res["calibration"]["prob_pred"],
+            "actual": res["calibration"]["prob_true"],
+        })
+        fig_cal = px.line(cal, x="predicted", y="actual",
+                          title="Predicted probability vs actual outcome",
+                          labels={"predicted": "Model's predicted probability",
+                                  "actual": "Share of projects that actually overran"})
+        fig_cal.add_trace(go.Scatter(
+            x=[0, 1], y=[0, 1], mode="lines", name="Perfect calibration",
+            line=dict(dash="dash", color="gray")))
+        fig_cal.update_layout(height=380, xaxis=dict(range=[0, 1]),
+                              yaxis=dict(range=[0, 1]))
+        st.plotly_chart(fig_cal, use_container_width=True)
+
+        # 5. Residuals
+        st.markdown("---")
+        st.subheader("5. Where Does the Model Make Mistakes? (Residuals)")
+        st.markdown(res["narratives"]["residuals"])
+        resid_df = pd.DataFrame({
+            "predicted_risk": res["residuals"]["pred"],
+            "residual": res["residuals"]["residual"],
+        })
+        fig_r = px.scatter(resid_df, x="predicted_risk", y="residual",
+                           title="Prediction error by predicted risk",
+                           labels={"predicted_risk": "Model's predicted risk",
+                                   "residual": "Error (+ = missed risk, - = false alarm)"},
+                           opacity=0.6)
+        fig_r.add_hline(y=0.0, line_dash="dash", line_color="green")
+        fig_r.update_layout(height=380)
+        st.plotly_chart(fig_r, use_container_width=True)
+
+        # 6. Statistical checks
+        st.markdown("---")
+        st.subheader("6. Statistical Checks")
+        st.markdown(res["narratives"]["stat_tests"])
+        st.dataframe(res["stat_tests"], use_container_width=True)
+        for note in res["stat_narratives"]:
+            st.markdown(f"- {note}")
+        with st.expander("Detailed VIF values (multicollinearity by factor)"):
+            st.dataframe(res["vif_table"], use_container_width=True)
+
+        # 7. Model comparison
+        st.markdown("---")
+        st.subheader("7. Did We Pick the Best Algorithm? (Model Comparison)")
+        st.markdown(res["narratives"]["model_comparison"])
+        comp_df = pd.DataFrame(res["model_comparison"], columns=["model", "test_auc"])
+        fig_cmp = px.bar(comp_df, x="test_auc", y="model", orientation="h",
+                         title="ROC-AUC by algorithm on the same held-out data",
+                         labels={"test_auc": "ROC-AUC (higher = better)",
+                                 "model": ""},
+                         color="test_auc", color_continuous_scale="Blues")
+        fig_cmp.update_layout(height=360, yaxis=dict(autorange="reversed"),
+                              xaxis=dict(range=[0.5, 1.0]))
+        st.plotly_chart(fig_cmp, use_container_width=True)
+
+        # 8. Trends
+        st.markdown("---")
+        st.subheader("8. What the Historical Record Says (Trend Analysis)")
+        st.markdown(res["narratives"]["trend_intro"])
+
+        tr = res["trend"]
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            fig_t = px.line(tr["time"], x="award_year", y="avg_overrun_pct",
+                            markers=True,
+                            title="Average overrun by award year",
+                            labels={"award_year": "Year", "avg_overrun_pct": "Avg overrun %"})
+            fig_t.update_layout(height=340)
+            st.plotly_chart(fig_t, use_container_width=True)
+            st.caption("After the 2015-2018 dollarisation era, the 2019-2020 "
+                       "currency collapse and 2021-2023 inflation spike pushed "
+                       "overruns sharply higher; the ZiG era (2024+) brought "
+                       "partial relief.")
+        with col_t2:
+            fig_s = px.bar(tr["sector"], x="avg_overrun_pct", y="sector",
+                           orientation="h",
+                           title="Average overrun by sector",
+                           labels={"avg_overrun_pct": "Avg overrun %", "sector": ""},
+                           color="avg_overrun_pct", color_continuous_scale="Reds")
+            fig_s.update_layout(height=340, yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig_s, use_container_width=True)
+            st.caption("Energy and roads have the worst track records - they "
+                       "demand bigger contingencies.")
+
+        col_t3, col_t4 = st.columns(2)
+        with col_t3:
+            fig_z = px.bar(tr["size"], x="avg_overrun_pct", y="baseline_capex",
+                           orientation="h",
+                           title="Average overrun by project size",
+                           labels={"avg_overrun_pct": "Avg overrun %",
+                                   "baseline_capex": ""},
+                           color="avg_overrun_pct", color_continuous_scale="Reds")
+            fig_z.update_layout(height=340, yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig_z, use_container_width=True)
+            st.caption("Larger projects carry 2-3x the overrun risk of small "
+                       "ones - consider phasing mega-projects.")
+        with col_t4:
+            fig_b = px.box(tr["box"], x="risk_category", y="trend_overrun_pct",
+                           color="risk_category",
+                           color_discrete_map={"LOW": "green", "MEDIUM": "orange",
+                                               "HIGH": "red"},
+                           title="Overrun distribution by risk label",
+                           labels={"trend_overrun_pct": "Overrun %",
+                                   "risk_category": "Risk label"})
+            fig_b.update_layout(height=340)
+            st.plotly_chart(fig_b, use_container_width=True)
+            st.caption("LOW projects mostly stay under 30% overruns; HIGH "
+                       "projects typically exceed 60%.")
+
+        # 9. Confidence + limitations
+        st.markdown("---")
+        st.subheader("9. Confidence Levels")
+        st.markdown(res["narratives"]["confidence"])
+        st.markdown("---")
+        st.info(res["narratives"]["limitations"])
+    else:
+        st.info("Run the diagnostics above to see the verified model "
+                "performance, statistical checks and trend analysis.")
 
 # ---------------------------------------------------------------------------
 # CAPITAL BUDGETING
