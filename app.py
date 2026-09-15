@@ -1,30 +1,109 @@
 """Capital Projects Finance AI Agent - Streamlit Web Application (Zimbabwe)."""
 import sys
 import os
+import importlib.util
 
-# Make local packages importable regardless of where the app is launched from
-# (works both locally and on Streamlit Cloud / Docker).
+# ---------------------------------------------------------------------------
+# Layout-agnostic bootstrap.
+# Preferred layout (repo root):
+#     app.py, requirements.txt, utils/, models/, README.md
+# Fallback layout (flat deploy zip): all modules next to app.py.
+# ---------------------------------------------------------------------------
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, APP_DIR)
 _SUB_DIR = os.path.join(APP_DIR, "capital_projects_agent")
 if os.path.isdir(os.path.join(_SUB_DIR, "utils")):
     sys.path.insert(0, _SUB_DIR)
 
-# Fail fast with a clear, actionable message if the project folders are missing
-# (the usual cause is a partial push to GitHub where utils/ and models/ were
-#  not committed).
-_MISSING = []
-for _pkg in ("utils", "models"):
-    if not os.path.isdir(os.path.join(APP_DIR, _pkg)):
-        _MISSING.append(os.path.join(APP_DIR, _pkg))
-if _MISSING:
-    raise ImportError(
-        "Missing project folders: " + ", ".join(_MISSING) + ".\n"
-        "Make sure the 'utils/' and 'models/' folders are committed and pushed "
-        "to your GitHub repository so they sit next to app.py. If app.py is the "
-        "deployed entrypoint, the repo root must contain app.py, utils/, models/, "
-        "requirements.txt and README.md."
-    )
+
+def _find_dir_with(both_files):
+    """Return the first directory under APP_DIR containing every file in
+    `both_files`, ignoring caches/virtualenvs."""
+    skip = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".idea"}
+    for root, dirs, files in os.walk(APP_DIR):
+        dirs[:] = [d for d in dirs if d not in skip]
+        if os.path.dirname(root) == os.path.dirname(APP_DIR) and root != APP_DIR:
+            continue
+        if all(f in files for f in both_files):
+            return root
+    return None
+
+
+def _import_modules():
+    """Import our modules either as a package (utils/models) or flat."""
+    if importlib.util.find_spec("utils") is not None:
+        from utils.macro_data import (
+            fetch_all_macro, fetch_exchange_rate_history, fetch_exchange_rate_zig,
+            forecast_exchange_rate, generate_cost_escalation_curve,
+        )
+        from utils.reporting import (
+            generate_project_brief, generate_credit_memo, generate_portfolio_summary,
+        )
+        from models.overrun_model import (
+            generate_synthetic_training_data, train_model, predict_overrun, get_model_info,
+        )
+        from models.capital_budgeting import full_project_valuation, risk_adjusted_discount_rate
+        from models.monte_carlo import monte_carlo_npv, sensitivity_tornado
+        from models.portfolio_optimizer import (
+            optimize_portfolio, sensitivity_budget, efficient_frontier,
+        )
+    else:
+        utils_dir = _find_dir_with(["macro_data.py", "reporting.py"])
+        models_dir = _find_dir_with(["overrun_model.py", "capital_budgeting.py"])
+        missing = []
+        for label, path in (("utils/macro_data.py", utils_dir),
+                            ("models/overrun_model.py", models_dir)):
+            if not path:
+                missing.append(label)
+        if missing:
+            raise ImportError(
+                "Cannot find required project modules: " + ", ".join(missing) + ".\n"
+                "Your GitHub repo must contain (next to app.py): utils/, models/, "
+                "requirements.txt, OR the contents of the capitex_deploy/ folder "
+                "uploaded flat to the repo root."
+            )
+        if utils_dir:
+            sys.path.insert(0, utils_dir)
+        if models_dir:
+            sys.path.insert(0, models_dir)
+        from macro_data import (
+            fetch_all_macro, fetch_exchange_rate_history, fetch_exchange_rate_zig,
+            forecast_exchange_rate, generate_cost_escalation_curve,
+        )
+        from reporting import (
+            generate_project_brief, generate_credit_memo, generate_portfolio_summary,
+        )
+        from overrun_model import (
+            generate_synthetic_training_data, train_model, predict_overrun, get_model_info,
+        )
+        from capital_budgeting import full_project_valuation, risk_adjusted_discount_rate
+        from monte_carlo import monte_carlo_npv, sensitivity_tornado
+        from portfolio_optimizer import (
+            optimize_portfolio, sensitivity_budget, efficient_frontier,
+        )
+
+    return {
+        "fetch_all_macro": fetch_all_macro,
+        "fetch_exchange_rate_history": fetch_exchange_rate_history,
+        "fetch_exchange_rate_zig": fetch_exchange_rate_zig,
+        "forecast_exchange_rate": forecast_exchange_rate,
+        "generate_cost_escalation_curve": generate_cost_escalation_curve,
+        "generate_project_brief": generate_project_brief,
+        "generate_credit_memo": generate_credit_memo,
+        "generate_portfolio_summary": generate_portfolio_summary,
+        "generate_synthetic_training_data": generate_synthetic_training_data,
+        "train_model": train_model,
+        "predict_overrun": predict_overrun,
+        "get_model_info": get_model_info,
+        "full_project_valuation": full_project_valuation,
+        "risk_adjusted_discount_rate": risk_adjusted_discount_rate,
+        "monte_carlo_npv": monte_carlo_npv,
+        "sensitivity_tornado": sensitivity_tornado,
+        "optimize_portfolio": optimize_portfolio,
+        "sensitivity_budget": sensitivity_budget,
+        "efficient_frontier": efficient_frontier,
+    }
+
 
 import streamlit as st
 import pandas as pd
@@ -33,31 +112,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-from utils.macro_data import (
-    fetch_all_macro,
-    fetch_exchange_rate_history,
-    fetch_exchange_rate_zig,
-    forecast_exchange_rate,
-    generate_cost_escalation_curve,
-)
-from models.overrun_model import (
-    generate_synthetic_training_data,
-    train_model,
-    predict_overrun,
-    get_model_info,
-)
-from models.capital_budgeting import full_project_valuation, risk_adjusted_discount_rate
-from models.monte_carlo import monte_carlo_npv, sensitivity_tornado
-from models.portfolio_optimizer import (
-    optimize_portfolio,
-    sensitivity_budget,
-    efficient_frontier,
-)
-from utils.reporting import (
-    generate_project_brief,
-    generate_credit_memo,
-    generate_portfolio_summary,
-)
+M = _import_modules()
+globals().update(M)
 
 st.set_page_config(
     page_title="Capital Projects Finance AI Agent - Zimbabwe",

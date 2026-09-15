@@ -11,7 +11,11 @@ import json
 import os
 import time
 
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "cache")
+# Resolve data/cache dir relative to this module so the layout
+# (utils/ subpackage vs flat deploy) doesn't matter.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE_DIR = os.path.join(_THIS_DIR, "..", "data", "cache")
+CACHE_DIR = os.path.abspath(CACHE_DIR)
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 

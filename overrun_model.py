@@ -25,7 +25,11 @@ try:
 except ImportError:
     HAS_XGB = False
 
-MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
+# Resolve model dir relative to this module so the layout
+# (models/ subpackage vs flat deploy) doesn't matter.
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(_THIS_DIR, "..", "models")
+MODEL_DIR = os.path.abspath(MODEL_DIR)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 SECTORS = ["roads", "buildings", "energy", "water", "telecoms", "mining", "agriculture"]
