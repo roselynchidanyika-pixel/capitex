@@ -1,0 +1,21 @@
+project_id,sector,baseline_capex,baseline_duration_days,complexity_score,design_completeness,procurement_delay_days,num_change_orders,contractor_type,funding_source,procurement_method,province
+ZIM-1001,roads,8500000,730,4,0.55,120,5,local_large,govt,open_competitive,Harare
+ZIM-1002,energy,42000000,1095,5,0.40,210,8,international,donor,restricted,Mashonaland West
+ZIM-1003,water,3200000,365,2,0.85,15,1,local_small,mixed,open_competitive,Bulawayo
+ZIM-1004,buildings,12000000,540,3,0.75,45,3,local_large,PPP,direct,Midlands
+ZIM-1005,telecoms,9000000,270,3,0.80,30,2,international,govt,open_competitive,Harare
+ZIM-1006,mining,30000000,820,5,0.50,180,10,international,mixed,restricted,Matabeleland North
+ZIM-1007,roads,15000000,900,4,0.45,90,6,local_large,donor,open_competitive,Masvingo
+ZIM-1008,energy,8000000,300,2,0.90,10,0,local_small,PPP,open_competitive,Mashonaland East
+ZIM-1009,water,5500000,450,3,0.70,60,4,local_large,govt,restricted,Manicaland
+ZIM-1010,agriculture,2000000,240,2,0.85,20,1,local_small,govt,open_competitive,Mashonaland Central
+ZIM-1011,roads,25000000,1100,5,0.35,240,12,international,donor,restricted,Matabeleland South
+ZIM-1012,energy,15000000,600,4,0.60,75,5,local_large,mixed,open_competitive,Bulawayo
+ZIM-1013,buildings,7500000,420,3,0.70,40,3,local_small,PPP,direct,Harare
+ZIM-1014,water,9000000,500,4,0.55,130,7,local_large,govt,open_competitive,Midlands
+ZIM-1015,telecoms,6000000,220,2,0.85,25,1,international,donor,open_competitive,Manicaland
+ZIM-1016,mining,50000000,1250,5,0.40,200,15,international,PPP,restricted,Mashonaland West
+ZIM-1017,roads,11000000,660,3,0.65,55,4,local_large,donor,open_competitive,Harare
+ZIM-1018,energy,4500000,330,2,0.80,0,0,local_small,govt,direct,Masvingo
+ZIM-1019,agriculture,3000000,280,3,0.75,35,2,local_small,donor,open_competitive,Mashonaland Central
+ZIM-1020,water,6000000,480,3,0.60,70,5,local_large,PPP,restricted,Bulawayo
